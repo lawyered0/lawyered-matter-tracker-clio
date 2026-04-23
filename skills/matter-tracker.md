@@ -197,7 +197,7 @@ Column S stores court-ordered deadlines as a JSON array. Each entry has three fi
 ```json
 [
   {"date": "2026-03-25", "description": "Amend claim to add corporation", "source": "March 12 endorsement"},
-  {"date": "2026-04-27", "description": "Serve Form 1B on defendants", "source": "Rule 1.03 — 30 days before trial"}
+  {"date": "2026-04-27", "description": "Serve the required court form on defendants", "source": "the applicable procedural rule — 30 days before trial"}
 ]
 ```
 
@@ -558,7 +558,7 @@ See `calendar-sync/SKILL.md` for the full spec, including event title format, sy
 
 ## Clio Sync
 
-Every successful **NEW MATTER** tracker write fires a Clio sync. The goal: Clio Manage carries a matching contact + matter for every active file so the lawyer can generate invoices and trust requests there without re-entry.
+Every successful **NEW MATTER** tracker write fires a Clio sync. The goal: Clio Manage carries a matching contact + matter for every active file so the user can generate invoices and trust requests there without re-entry.
 
 **One-way sync only.** Tracker is the source of truth; Clio is a downstream projection. Never read Clio data back into the tracker.
 
@@ -570,7 +570,7 @@ After the tracker row is written and the calendar sync runs, perform these steps
 
 **1. Determine client type from the tracker Client Name (column B):**
 
-- **Slash-format legacy rows** (e.g. `"Acme Holdings Inc. / Omega Corp (Smith)"`): the convention disallows slashes — they should be ampersands. If the Client Name contains ` / ` (space-slash-space), inline-convert it to ` & ` before running the rest of this step (so `"X / Y (Z)"` becomes `"X & Y (Z)"`). **The conversion is in-memory for this Clio call only — the tracker row is NOT modified.** Flag the conversion in the final Clio sync report so the lawyer sees which row was auto-handled (e.g. `"Note: Client name contains slash; converted to ampersand for Clio lookup. Tracker row unchanged."`). the lawyer has a one-time bulk migration script kept on his local machine (outside Cowork) for permanent cleanup; do not attempt to write back to the tracker from this skill. After conversion, the row is treated as a normal multi-entity company name — the resulting `"X & Y"` is sent to `clio_find_contact` as a single entity. If no match is found and a contact must be created, create it under the combined name `"X & Y"`; the lawyer can split it later in Clio if they want separate contacts.
+- **Slash-format legacy rows** (e.g. `"Acme Holdings Inc. / Omega Corp (Smith)"`): the convention disallows slashes — they should be ampersands. If the Client Name contains ` / ` (space-slash-space), inline-convert it to ` & ` before running the rest of this step (so `"X / Y (Z)"` becomes `"X & Y (Z)"`). **The conversion is in-memory for this Clio call only — the tracker row is NOT modified.** Flag the conversion in the final Clio sync report so the lawyer sees which row was auto-handled (e.g. `"Note: Client name contains slash; converted to ampersand for Clio lookup. Tracker row unchanged."`). The lawyer has a one-time bulk migration script kept on his local machine (outside Cowork) for permanent cleanup; do not attempt to write back to the tracker from this skill. After conversion, the row is treated as a normal multi-entity company name — the resulting `"X & Y"` is sent to `clio_find_contact` as a single entity. If no match is found and a contact must be created, create it under the combined name `"X & Y"`; the lawyer can split it later in Clio if they want separate contacts.
 - Name contains parentheses (e.g. `"Acme Corp Inc. (John Smith)"`) → **Company**. The Clio company name is the part before the open paren (`"Acme Corp Inc."`). The principal in parens is informational only — Clio gets the entity name.
 - Name contains a corporate suffix (`"Inc."`, `"LLC"`, `"Ltd."`, `"Corp."`, `"Co."`) or matches a numbered-company pattern (`"10014056 Holdings LLC"`) → **Company**. Use the full name as the company name.
 - Otherwise → **Person**. Split into first and last name. Handle both `"First Last"` and `"Last, First"` formats. If the name is a single token, ask the user.
@@ -609,7 +609,7 @@ If a fee is provided:
 `clio_create_flat_fee_activity(matter_id=<from step 3>, amount=<fee>, description=<one-line bill text>)`
 
 The activity description should be a short, bill-ready line — typically derived from column C. Examples:
-- Col C = `"Demand letter to Tremblay Law Group re: SEO contract"` → activity desc = `"Flat fee: demand letter to Tremblay Law Group re: SEO contract"` (or just `"Flat fee — " + col C`).
+- Col C = `"Demand letter to Acme Law Group re: SEO contract"` → activity desc = `"Flat fee: demand letter to Acme Law Group re: SEO contract"` (or just `"Flat fee — " + col C`).
 
 If the user skips the fee, omit this step entirely. The Clio matter still exists; the lawyer can add the activity manually in Clio later.
 
