@@ -1,0 +1,92 @@
+# Matter Tracker (Clio Edition) — Claude Code Context
+
+This project is a legal matter tracking system backed by an Excel spreadsheet (`matter-tracker.xlsx`). It tracks open and closed client matters, limitation periods, court deadlines, conflict checks, and chronological timelines — all from a single `.xlsx` file in this directory. New matters are also synced one-way to [Clio Manage](https://www.clio.com/ca/clio-manage/) via the [clio-mcp](https://github.com/lawyered0/clio-mcp) server.
+
+## Where Things Live
+
+- **Tracker spreadsheet**: `matter-tracker.xlsx` in this directory (the CWD)
+- **Client folders**: sibling directories of this file, one per matter (e.g., `./Smith v Jones/`)
+- **Per-matter briefs**: `_matter-brief.md` inside each client folder (created/updated by the `work-on-matter` skill)
+
+## Available Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `daily-triage` | Scan Gmail for new emails, match to open matters, surface urgent items, present a prioritised triage summary |
+| `matter-tracker` | Open, update, and close matters — pulls from Gmail + client folders to build timelines, runs conflict checks, maintains the spreadsheet, **and syncs new matters to Clio Manage** (contact + matter + flat-fee activity) |
+| `work-on-matter` | Load context for an existing matter at session start, do substantive work with source-first drafting and privilege screening, and keep the tracker current inline |
+| `calendar-sync` *(helper)* | Push, update, and cancel deadline events on a dedicated "Key Dates" Google Calendar. Invoked internally by the other skills |
+| `overdue-triage` | Periodic sweep of all open matters to reconcile stale / expired deadlines against reality |
+
+## Configuration
+
+Fill in the values below for your firm and jurisdiction. These are read by the skills at runtime.
+
+### Firm
+
+```
+FIRM_NAME: [Your Firm Name]
+LAWYER_SHORTHAND: [Your Initials]
+```
+
+`LAWYER_SHORTHAND` is used in timeline entries (e.g., "AB spoke with client re: settlement").
+
+### Court / Tribunal Email Domains
+
+Emails from these domains are flagged as **urgent** by the `daily-triage` skill. Add the domains used by courts, tribunals, and regulatory bodies in your jurisdiction.
+
+```
+COURT_EMAIL_DOMAINS:
+  - court.gov.example
+  - tribunal.gov.example
+  - registry.example.gov
+```
+
+### Limitation Statutes
+
+The statutes and default periods used for limitation deadline tracking. Edit to match your jurisdiction.
+
+```
+LIMITATION_STATUTES:
+  - name: General limitation
+    period_years: 2
+    description: Default limitation period for most civil claims
+  - name: Property damage
+    period_years: 2
+    description: Damage to property
+  - name: Contract (written)
+    period_years: 6
+    description: Breach of written contract
+  - name: Personal injury
+    period_years: 2
+    description: Bodily injury claims
+```
+
+### ID Verification
+
+If your firm uses a third-party identity verification service, specify it here. The `matter-tracker` skill will reference this when prompting for client ID checks.
+
+```
+ID_VERIFICATION_SERVICE: [e.g., Verified.Me, Jumio, or "manual" for in-person verification]
+```
+
+### Calendar Sync *(optional — used by `calendar-sync` skill)*
+
+If you want deadlines pushed to Google Calendar, create a dedicated "Key Dates" calendar and paste its ID below. The calendar's notification settings drive the reminder schedule (recommended default: 14 / 7 / 2 / 0 days before for all-day events).
+
+```
+KEY_DATES_CALENDAR_ID: <your-key-dates-calendar-id>@group.calendar.google.com
+TIMEZONE: <your-iana-timezone>   # e.g., America/New_York
+```
+
+Finding the ID: Google Calendar → Settings → select the calendar → "Integrate calendar" → "Calendar ID". Requires a Google Calendar MCP server connected to Claude.
+
+### Clio Sync
+
+The `matter-tracker` skill syncs new matters to Clio via the [clio-mcp](https://github.com/lawyered0/clio-mcp) server. Set your Clio user id here so that new matters get the correct responsible and originating attorney. Find it by asking Claude "who am I in Clio?" once the clio-mcp server is connected.
+
+```
+CLIO_USER_ID: <your-clio-user-id>   # numeric, e.g. 123456
+```
+
+Clio sync runs on `new matter` only. `update matter` and `close matter` do not touch Clio — if you need to change a matter's Clio record, do it in the Clio UI.
