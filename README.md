@@ -2,13 +2,13 @@
 
 A practice management system for solo and small law firms, powered by [Claude](https://claude.ai), with one-way sync to [Clio Manage](https://www.clio.com/ca/clio-manage/).
 
-This is the **Clio-integrated variant** of [`lawyered-matter-tracker`](https://github.com/lawyered0/lawyered-matter-tracker). Everything the main repo does, plus: when you open a new matter, Claude automatically creates (or reuses) the contact in Clio, creates the matter, and optionally adds a flat-fee activity — all without leaving the conversation. The tracker remains the source of truth; Clio is a downstream projection.
+This is the **Clio-integrated variant** of [`lawyered-matter-tracker`](https://github.com/lawyered0/lawyered-matter-tracker). Everything the main repo does, plus: when you open a new matter, Claude automatically creates (or reuses) the contact in Clio and creates the matter — configuring it as a flat-fee matter in one call when you specify a fee, all without leaving the conversation. The tracker remains the source of truth; Clio is a downstream projection.
 
 If you don't use Clio, use the [plain version](https://github.com/lawyered0/lawyered-matter-tracker) instead.
 
 - You have client folders and an Excel spreadsheet — that's your local CRM
 - Instead of clicking through Clio for every new matter, you talk to Claude
-- **"New matter Smith, flat fee $1,500"** — searches your Gmail and client folders, builds a timeline, runs a conflict check, adds the matter to your tracker, **creates the contact + matter + flat-fee activity in Clio**
+- **"New matter Smith, flat fee $1,500"** — searches your Gmail and client folders, builds a timeline, runs a conflict check, adds the matter to your tracker, **creates the contact + flat-fee matter in Clio** (one-call setup via `custom_rate`)
 - **"Daily triage"** — scans your inbox, matches emails to open matters, flags court deadlines, and tells you what needs attention
 - **"Let's work on Smith"** — loads the full context for a matter so you can pick up mid-conversation where the last session left off
 - **"Update matter Smith"** — pulls new emails and documents since the last update, merges them into the timeline *(does not touch Clio — Clio sync only runs on new matters)*
@@ -63,7 +63,7 @@ Copy `CLAUDE.md` from this repo into your client files directory and edit it to 
 Open Claude Desktop (or run `claude` from the CLI) with your client files directory as the working directory. Then just say things like:
 
 - "Run the daily triage"
-- "Open a new matter for Smith v Jones, flat fee $1,500" *(creates the matter in Clio with the flat-fee activity)*
+- "Open a new matter for Smith v Jones, flat fee $1,500" *(creates a flat-fee matter in Clio in one call)*
 - "Let's work on the Garcia file"
 - "Update the timeline for matter 2026-003"
 - "Run a conflict check for Acme Corp"
@@ -74,16 +74,15 @@ The tracker spreadsheet is created automatically the first time you open a new m
 
 **On `new matter`, Claude will:**
 1. Search Clio for a contact matching the client name. If found, reuse it. If not, create a new Clio contact (company or person, inferred from the tracker's Client Name column).
-2. Create a new Clio matter under that contact.
-3. If you specified a flat fee in the command (or answer the flat-fee prompt during confirmation), create a flat-fee activity on the matter.
-4. Report the Clio contact ID, matter ID, and activity amount back to you.
+2. Create a new Clio matter under that contact — passing `flat_rate_amount` when a fee is known so the matter is set up as flat-fee in a single call (Clio flips `billing_method` to `"flat"` and auto-creates the billable line item).
+3. Report the Clio contact ID, matter ID, and flat fee back to you.
 
 **It will NOT:**
 - Read Clio data back into the tracker — sync is one-way. Tracker is source of truth.
 - Touch Clio on `update matter` or `close matter` — only `new matter` triggers Clio sync. If you change a matter in Clio, that's fine; the tracker doesn't care.
 - Persist Clio IDs in the tracker — future syncs look up by client name. (If duplicate-name collisions become a problem, an optional Clio ID column can be added to the schema.)
 
-**Known Clio API quirk:** Clio's API silently saves `billing_method` as `"hourly"` regardless of what's sent. The matter will display as "hourly" in Clio reports — that's expected. The actual flat-fee billing happens at the *activity* level, so bills generated from the matter will total to the activity amount. If you want the matter to display as "flat" in the Clio UI, that's a one-click toggle in the matter settings.
+**Known Clio API quirk:** Setting `billing_method` directly at the matter root is silently ignored by Clio's API — but flat-fee billing **is** settable via the nested `custom_rate` association. The `clio-mcp` server handles this automatically when you pass `flat_rate_amount` to `clio_create_matter`: it POSTs the matter, then PATCHes `custom_rate` so Clio flips `billing_method` to `"flat"` and auto-creates a billable line item for the fee. The matter displays correctly as flat-fee in Clio reports.
 
 **If Clio MCP is unavailable** (server down, auth expired, etc.), the tracker write still commits and the Clio failure is logged to you. The system degrades cleanly — no lost work.
 
@@ -103,7 +102,7 @@ Five Claude skills handle the core workflows:
 Searches Gmail for recent emails, matches them against open matters by name/email/keyword, classifies urgency (court emails are always urgent), and presents a scannable summary. Auto-fills missing contact info when confident. Categorises unmatched emails into: active matters not yet tracked, new client inquiries, leads, and non-legal.
 
 ### Matter Tracker
-The CRM engine. "New matter Smith" triggers a full Gmail search + folder scan, builds a timeline with a SUMMARY header, runs a conflict check, adds the matter to the spreadsheet, **and syncs the contact + matter + flat-fee activity to Clio**. "Update matter Smith" pulls new activity since the last update (tracker only — no Clio touch). "Close matter Smith" finalises and archives (tracker only). Always confirms before writing.
+The CRM engine. "New matter Smith" triggers a full Gmail search + folder scan, builds a timeline with a SUMMARY header, runs a conflict check, adds the matter to the spreadsheet, **and syncs the contact + flat-fee matter to Clio in a single call**. "Update matter Smith" pulls new activity since the last update (tracker only — no Clio touch). "Close matter Smith" finalises and archives (tracker only). Always confirms before writing.
 
 ### Work on Matter
 Fast context loading. "Let's work on Smith" reads the tracker row and a `_matter-brief.md` file from the matter folder. As you do substantive work (review documents, draft letters, give advice), the skill saves a brief and updates the tracker inline so the next session can pick up instantly. Includes source-first drafting guardrails (every dollar figure, section reference, and party name gets confirmed against the source document before it lands in client-facing output) and a privilege screen that catches internal reasoning bleeding into outbound comms.

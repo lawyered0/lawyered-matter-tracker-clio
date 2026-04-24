@@ -357,7 +357,7 @@ Before adding a new matter, **always run a full conflicts check** against the ex
    - **Matter Folder (T)**: Search the workspace directory for a subfolder matching the client. **All matching must be case-insensitive.** First, dump the full directory listing to a text file using `ls -1 > /tmp/dirlist.txt`, then grep against that file — this avoids shell issues with special characters (colons, ampersands, parentheses, etc.) in folder names. Try matching against ALL of these permutations of the client name: "First Last" (e.g. "wayne evans"), "Last, First" (e.g. "Evans, Wayne"), "Last First" (no comma), just the last name, just the first name, and any company/entity name from the matter description or opposing party field. **Also search for the mother/father/third-party name if the matter is brought on someone else's behalf** (e.g. for "Geck v. Oickle" brought by Deborah Newton on behalf of May Geck, search for "Newton", "Deborah", "Geck", and "May"). Folders are often named in lowercase or informal formats (e.g. "wayne evans" not "Evans, Wayne"), or after the entity rather than the person (e.g. "Globex Inc." not "Smith, John"), and frequently contain special characters like colons (e.g. "Deborah Newton : Geck"). Cast a wide net — grep each search term separately and case-insensitively against the text file listing. If found, write just the subfolder name exactly as it appears on disk. If not found, leave blank.
 7. Save the updated tracker to disk.
 8. **Calendar sync**: Invoke the `calendar-sync` skill's `reconcile(new_row)` for this matter. This pushes any limitation date (column R), court deadlines (column S), and dated Next Action (column I) to the Key Dates calendar with the appropriate reminder schedules. Report back to the user: "Pushed N events to Key Dates." If calendar-sync is unavailable, skip this step and note it once — do not block the tracker write.
-9. **Clio sync**: Run the Clio sync procedure (see "Clio Sync" section below). This searches Clio for an existing contact matching the client name, creates the contact if not found, creates the matter, and creates a flat-fee activity if a fee was specified in the command (or asks for one during confirmation). Report the Clio result to the user: `"Clio: contact #X (new|reused), matter #Y (display Z), activity $N"`. If the Clio MCP is unavailable, skip this step and note it once — do not block the tracker write.
+9. **Clio sync**: Run the Clio sync procedure (see "Clio Sync" section below). This searches Clio for an existing contact matching the client name, creates the contact if not found, and creates the matter — passing `flat_rate_amount` when a fee is known (parsed from the command or asked during confirmation), which makes the matter fully flat-configured in a single call. Report the Clio result to the user: `"Clio: contact #X (new|reused), matter #Y (display Z), flat fee $N"`. If the Clio MCP is unavailable, skip this step and note it once — do not block the tracker write.
 
 ### 2. UPDATE MATTER
 
@@ -589,40 +589,37 @@ Call `clio_find_contact(query=<primary contact name>)`.
 
 For the address dict (when col O is populated): pass `{"name": "Work", "street": <street>, "city": <city>, "province": <province>, "postal_code": <postal>, "country": <country>}`. If the address can't be cleanly parsed into parts, just pass `{"name": "Work", "street": <full string>}` and let Clio store it unparsed. Do NOT block the sync on address parsing.
 
-**3. Create the Clio matter:**
-
-`clio_create_matter(client_id=<from step 2>, description=<col C>, open_date=<col E or today>)`
-
-The tool auto-sets responsible_attorney and originating_attorney to the lawyer (Clio user id <your-clio-user-id>). Capture `id` and `display_number` from the response.
-
-**Note (confirmed Clio API limitation):** Clio's REST API silently saves `billing_method` as `"hourly"` regardless of what's sent. The matter will display as "hourly" in Clio reports — that's expected. The actual flat-fee billing happens at the activity level (next step), and bills generated from the matter will total to the activity amount.
-
-**4. Create the flat-fee activity (if a fee amount is known):**
+**3. Determine the flat fee amount:**
 
 The flat fee amount comes from one of two places:
 
 - **Parsed from the command**: If the user wrote a fee in the original command, extract it. Recognize patterns like `flat fee $X`, `flat fee X`, `flat $X`, `fee $X`, `quoted $X`, `quoted at $X`, `fee: $X`. The amount is the dollar value (strip `$`, `,`, and trailing words like "+ HST" — store the pre-tax base unless the lawyer specifies otherwise).
-- **Asked during the confirmation step**: If no fee was in the command, the confirmation message in NEW MATTER step 5 should include a line: `"Flat fee for Clio activity? (number, or 'skip' to create matter without activity)"`. Accept any numeric input or `skip`.
+- **Asked during the confirmation step**: If no fee was in the command, the confirmation message in NEW MATTER step 5 should include a line: `"Flat fee for this matter? (number, or 'skip' if not yet quoted)"`. Accept any numeric input or `skip`.
 
-If a fee is provided:
+**4. Create the Clio matter (flat fee in one call):**
 
-`clio_create_flat_fee_activity(matter_id=<from step 3>, amount=<fee>, description=<one-line bill text>)`
+If a fee amount was determined in step 3:
 
-The activity description should be a short, bill-ready line — typically derived from column C. Examples:
-- Col C = `"Demand letter to Acme Law Group re: SEO contract"` → activity desc = `"Flat fee: demand letter to Acme Law Group re: SEO contract"` (or just `"Flat fee — " + col C`).
+`clio_create_matter(client_id=<from step 2>, description=<col C>, open_date=<col E or today>, flat_rate_amount=<fee>)`
 
-If the user skips the fee, omit this step entirely. The Clio matter still exists; the lawyer can add the activity manually in Clio later.
+If no fee was provided (user said `skip`):
+
+`clio_create_matter(client_id=<from step 2>, description=<col C>, open_date=<col E or today>)`
+
+The tool auto-sets responsible_attorney and originating_attorney to the lawyer (Clio user id `<your-clio-user-id>`). Capture `id` and `display_number` from the response.
+
+**How `flat_rate_amount` works:** When set, the MCP server POSTs the matter then PATCHes `custom_rate` with `type: FlatRate` and the given amount. Clio (a) flips `billing_method` to `"flat"` and (b) auto-creates a billable flat_rate TimeEntry whose total equals the amount. The matter is fully configured for invoicing in a single tool call — no separate activity step is needed. When `flat_rate_amount` is omitted, the matter is created hourly with no rate; the lawyer can add a rate or activities later.
 
 **5. Report the result to the user:**
 
 ```
-Clio: contact #<id> (new|reused), matter #<id> (display <display_number>), activity $<amount>
+Clio: contact #<id> (new|reused), matter #<id> (display <display_number>), flat fee $<amount>
 ```
 
-If the activity was skipped:
+If the fee was skipped:
 
 ```
-Clio: contact #<id> (new|reused), matter #<id> (display <display_number>), no activity (fee not specified)
+Clio: contact #<id> (new|reused), matter #<id> (display <display_number>), no rate (fee not specified)
 ```
 
 If anything failed:
@@ -637,7 +634,7 @@ Clio: <what succeeded>; FAILED: <step that failed> — <error summary>
 - **Never read Clio back into the tracker.** Clio is downstream. The tracker doesn't pull state from Clio.
 - **Look up by name on every sync.** Clio IDs are not persisted in the tracker. Future operations (UPDATE/CLOSE, when wired up) will re-search by client name. If client-name lookup becomes unreliable due to duplicate names, revisit and add tracker columns for Clio Contact ID / Matter ID at that point.
 - **Address parsing is best-effort.** Don't block the sync on address structure. Worst case, dump the freeform address into `street` and ship it.
-- **Matter `billing_method` always shows `"hourly"`** in Clio's API and reports — confirmed limitation, not a bug. The activity drives the bill amount. If the lawyer wants the matter to display as flat in Clio's UI, that's a one-click toggle in the matter settings (out of API scope).
+- **Matter `billing_method` is set via the `custom_rate` association**, not the field directly. When the sync passes `flat_rate_amount` to `clio_create_matter`, Clio flips `billing_method` to `"flat"` and auto-creates a billable flat_rate TimeEntry for the amount — both in one round trip. When `flat_rate_amount` is omitted (no fee quoted yet), the matter is created hourly; this is expected and can be fixed later with another PATCH or by adding activities.
 - **Clio MCP availability check.** If the first Clio call (`clio_find_contact`) errors with a connection/transport error (not a Clio-side 4xx/5xx), assume the MCP server is down and skip the rest of the sync. Note this once to the user: `"Clio MCP unavailable — skipped Clio sync. Matter is in tracker only."`
 
 ## Template Creation
@@ -687,7 +684,7 @@ Use the xlsx skill's recalc script if any formulas are added.
 16. **Handle multi-matter client folders.** If a client folder has subfolders for separate matters, scope the scan to the relevant subfolder. Match by matter description or keywords. If ambiguous, ask the user.
 17. **Always populate column U (Other Parties).** On every new, update, and close, extract the names of all non-client, non-opposing parties from emails and folder files and write them to column U. This is critical for conflict check coverage.
 18. **Calendar sync runs after every tracker write.** New, update, and close all invoke the `calendar-sync` skill — new/update/reopen call `reconcile`, close calls `cancel_all_for_matter`. This is non-negotiable; the value of the tracker is undermined if its deadlines don't appear on the calendar. If calendar-sync fails, the tracker write still commits and the failure is logged to the user.
-19. **Clio sync runs after every NEW MATTER tracker write.** After the calendar sync, the new-matter workflow invokes the Clio MCP tools to dedup or create a Clio contact, create the matter, and create a flat-fee activity (if a fee was provided in the command or during confirmation). UPDATE and CLOSE do NOT touch Clio — those workflows skip the Clio sync entirely. If the Clio MCP is unavailable or any call fails, the tracker write still commits and the failure is logged to the user. Clio IDs are not persisted in the tracker; future syncs look up by client name.
+19. **Clio sync runs after every NEW MATTER tracker write.** After the calendar sync, the new-matter workflow invokes the Clio MCP tools to dedup or create a Clio contact and create the matter, passing `flat_rate_amount` when a fee is known so the matter is created fully flat-configured (billing_method=flat plus an auto-generated billable TimeEntry for the fee). UPDATE and CLOSE do NOT touch Clio — those workflows skip the Clio sync entirely. If the Clio MCP is unavailable or any call fails, the tracker write still commits and the failure is logged to the user. Clio IDs are not persisted in the tracker; future syncs look up by client name.
 
 ## Finding the Tracker
 

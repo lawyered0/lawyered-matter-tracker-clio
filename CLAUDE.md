@@ -13,7 +13,7 @@ This project is a legal matter tracking system backed by an Excel spreadsheet (`
 | Skill | Purpose |
 |-------|---------|
 | `daily-triage` | Scan Gmail for new emails, match to open matters, surface urgent items, present a prioritised triage summary |
-| `matter-tracker` | Open, update, and close matters — pulls from Gmail + client folders to build timelines, runs conflict checks, maintains the spreadsheet, **and syncs new matters to Clio Manage** (contact + matter + flat-fee activity) |
+| `matter-tracker` | Open, update, and close matters — pulls from Gmail + client folders to build timelines, runs conflict checks, maintains the spreadsheet, **and syncs new matters to Clio Manage** (contact + flat-fee matter in one call via `custom_rate`) |
 | `work-on-matter` | Load context for an existing matter at session start, do substantive work with source-first drafting and privilege screening, and keep the tracker current inline |
 | `calendar-sync` *(helper)* | Push, update, and cancel deadline events on a dedicated "Key Dates" Google Calendar. Invoked internally by the other skills |
 | `overdue-triage` | Periodic sweep of all open matters to reconcile stale / expired deadlines against reality |
