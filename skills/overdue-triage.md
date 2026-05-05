@@ -32,13 +32,13 @@ Mirror `matter_to_dict()` in `app.py`. The three overdue sources are:
 
 ### 1. Column I (Next Action / Deadline): past-date Next Action
 
-Parse column I with the regex `^(\d{4}-\d{2}-\d{2})\s*:`. The date MUST be at the start of the string and followed by a colon. This matches the matter-tracker schema convention (`YYYY-MM-DD: [description]`). Do NOT use `\b(\d{4}-\d{2}-\d{2})\b` (searches anywhere in the string): that produces false positives when a historical or contextual date appears in prose (e.g., "adjourned from 2026-04-09", "Form 9B filed 2026-01-21"). If no leading date matches, the Next Action is open-ended and NOT overdue.
+Parse column I with the regex `^(\d{4}-\d{2}-\d{2})\s*:`. The date MUST be at the start of the string and followed by a colon. This matches the matter-tracker schema convention (`YYYY-MM-DD: [description]`). Do NOT use `\b(\d{4}-\d{2}-\d{2})\b` (searches anywhere in the string): that produces false positives when a historical or contextual date appears in prose (e.g., "adjourned from 2026-04-09", "assessment request form filed 2026-01-21"). If no leading date matches, the Next Action is open-ended and NOT overdue.
 
 - Example overdue: `"2026-03-27: Settlement conference at 1:15 PM"` (leading date, past)
 - Example NOT overdue: `"Awaiting client instructions re: oath"` (no leading date)
 - Example NOT overdue: `"2026-05-15: Serve disclosure"` (leading date, future)
 - Example NOT overdue: `"Settlement conference to be rescheduled (adjourned from 2026-04-09); awaiting new date"` (date is embedded, not leading, so no deadline)
-- Example NOT overdue: `"Awaiting court to schedule assessment hearing (Form 9B filed 2026-01-21)"` (embedded filing date, not a deadline)
+- Example NOT overdue: `"Awaiting court to schedule assessment hearing (assessment request form filed 2026-01-21)"` (embedded filing date, not a deadline)
 
 **Known inherited bug**: the `app.py` Flask dashboard uses the looser regex and will show the above embedded-date examples as overdue. The tracker data is fine; only the dashboard display is wrong. Consider patching `app.py` to match this skill's stricter regex.
 
@@ -105,14 +105,14 @@ For each matter in a batch:
 
 1. **Gmail pull**: `gmail_search_messages` for the client name (from column B: strip the parenthetical principal name and search both the entity and the principal). Use `newer_than` based on the earliest overdue date for that matter, minus 7 days for context. Read every thread in full with `gmail_read_thread`. Snippets lie.
 2. **Folder scan** (if column T is populated): `Glob` the matter folder for common legal file types (`**/*.pdf`, `**/*.docx`, `**/*.msg`, `**/*.eml`). Filter to files modified after the earliest overdue date minus 7 days.
-3. **Read** the relevant files. For **scanned PDFs** where text extraction returns empty (common for court endorsements, affidavits of service, filed originals produced by the court or a process server): treat the **filename** and **modification date** as primary evidence of occurrence (e.g., `"ENDORSEMENT RECORD - DJ WALLACH - 27 MAR 2026.pdf"` on disk strongly implies the hearing produced an order). Do not silently skip scanned PDFs. Record their filenames in the evidence bundle so the lawyer sees them in the confirmation step. Defer outcome detail (what the endorsement says, what was decided) to Gmail, the matter brief (`_matter-brief.md`), or the lawyer's memory.
+3. **Read** the relevant files. For **scanned PDFs** where text extraction returns empty (common for court endorsements, affidavits of service, filed originals produced by the court or a process server): treat the **filename** and **modification date** as primary evidence of occurrence (e.g., `"ENDORSEMENT RECORD - DJ SMITH - 27 MAR 2026.pdf"` on disk strongly implies the hearing produced an order). Do not silently skip scanned PDFs. Record their filenames in the evidence bundle so the lawyer sees them in the confirmation step. Defer outcome detail (what the endorsement says, what was decided) to Gmail, the matter brief (`_matter-brief.md`), or the lawyer's memory.
 4. **Read `_matter-brief.md`** if present in the matter folder. The brief is a privileged current-state snapshot. Its "Open Items" and "Last Updated" sections are often decisive evidence of what was pending vs. resolved.
 5. For each overdue item on this matter, build the evidence bundle:
    - **Resolved evidence**: events in Gmail / folder / brief that clearly indicate the deadline was met or the underlying task is complete. Examples:
      - Settlement conference date passed, and there's a follow-up email from opposing counsel referencing what was discussed at conference. Resolved (happened).
      - Court deadline "Serve defendants by 2026-04-10" and folder has "Affidavit of Service - 2026-04-08.pdf". Resolved.
      - Next Action "2026-03-19: 7-day cure period expires" and Gmail shows a settlement agreement signed 2026-03-18. Resolved (mooted by settlement).
-     - Overdue limitation and an issued claim is in the folder (file starts with court file number or contains "Issued" / "Form 7A"). Likely resolved (claim was filed); flag for "claim filed" confirmation.
+     - Overdue limitation and an issued claim is in the folder (file starts with court file number or contains "Issued" or "Statement of Claim"). Likely resolved (claim was filed); flag for "claim filed" confirmation.
    - **Unresolved evidence**: no activity, no reference, or explicit signs the task wasn't done. Example: "Serve the required court form on defendants by 2026-04-10" with no affidavit of service, no email about service, and no acknowledgment from opposing counsel. Unresolved.
    - **Ambiguous**: unclear. Default to treating as unresolved (safer) and flag it for the lawyer to decide.
 
@@ -188,7 +188,7 @@ SKIPPED (X items):
 
 UNRESOLVED (Y items), will go on red-flag list, no tracker writes:
   * File #2026-008 (Chen): Limitation expired 2026-04-05 (14 days ago), HIGH RISK
-  * File #2026-021 (Nguyen): Next Action "2026-03-10: File defence", 40 days overdue
+  * File #2026-021 (Taylor): Next Action "2026-03-10: File defence", 40 days overdue
   ...
 
 Apply? [Y/N]
@@ -250,7 +250,7 @@ LIMITATION EXPIRED (HIGHEST PRIORITY):
     Limitation expired: 2026-04-05 (14 days ago)
     Last activity: 2026-03-01 (49 days ago)
     Statute: general_statute
-    > Suggested action: URGENT. Confirm whether claim was filed. If not, assess malpractice exposure and notify insurer if applicable. Do NOT file out of time without a s. 5(2) limitations statute analysis.
+    > Suggested action: URGENT. Confirm whether claim was filed. If not, assess malpractice exposure and notify insurer if applicable. Do NOT file out of time without a limitations statute discoverability analysis.
 
 COURT DEADLINES PAST DATE:
   * File #2026-019: Smith, J.
@@ -259,7 +259,7 @@ COURT DEADLINES PAST DATE:
     > Suggested action: Confirm service status. If not served, serve immediately and disclose late service to the court. If served, run "update matter Smith" to log the service date.
 
 NEXT ACTION PAST DATE:
-  * File #2026-021: Nguyen, T.
+  * File #2026-021: Taylor, M.
     Next Action: "2026-03-10: File defence"
     Overdue by: 40 days
     Last activity: 2026-02-20 (58 days ago)

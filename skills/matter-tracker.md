@@ -1,6 +1,6 @@
 ---
 name: matter-tracker
-description: "Use this skill whenever the user says 'new matter [name]', 'update matter [name]', or 'close matter [name]'. Also trigger on: 'show my open files', 'what's open', 'matter list', 'file list', 'CRM', 'matter tracker', 'conflict check', 'limitation period', 'court deadline', or any reference to tracking client files, opening/closing/updating matters, checking for conflicts, tracking limitation periods, or reviewing the status of legal work. Trigger even if the phrasing is casual, e.g. 'new matter Smith', 'update matter Chen', 'close matter Smith', 'run a conflict on Nguyen', 'what's the limitation on the Rivera file'. Also trigger when the user uploads a .xlsx file and references client matters, or asks to pull emails for a client to update their file. Do NOT trigger on 'let's work on [name]', 'pull up [name]', or 'where are we with [name]' — those belong to the work-on-matter skill for loading context. Always use this skill in combination with the xlsx skill for spreadsheet operations."
+description: "Use this skill whenever the user says 'new matter [name]', 'update matter [name]', or 'close matter [name]'. Also trigger on: 'show my open files', 'what's open', 'matter list', 'file list', 'CRM', 'matter tracker', 'conflict check', 'limitation period', 'court deadline', or any reference to tracking client files, opening/closing/updating matters, checking for conflicts, tracking limitation periods, or reviewing the status of legal work. Trigger even if the phrasing is casual, e.g. 'new matter Smith', 'update matter Davis', 'close matter Jones', 'run a conflict on Lee', 'what's the limitation on the Chen file'. Also trigger when the user uploads a .xlsx file and references client matters, or asks to pull emails for a client to update their file. Do NOT trigger on 'let's work on [name]', 'pull up [name]', or 'where are we with [name]' — those belong to the work-on-matter skill for loading context. Always use this skill in combination with the xlsx skill for spreadsheet operations."
 ---
 
 # Matter Tracker — Open Files CRM
@@ -25,7 +25,7 @@ Plus a **Review** mode to display current open matters in conversation.
 
 ## Conventions
 
-- **"the lawyer"** in timeline entries refers to the user (the lawyer). Always use "the lawyer" as shorthand for the user in timeline entries — e.g., "the lawyer sent demand letter to opposing counsel."
+- **"the lawyer"** in timeline entries refers to the user. Always use "the lawyer" as shorthand in timeline entries — e.g., "the lawyer sent demand letter to opposing counsel."
 - **"Client"** refers to the person/entity who retained the lawyer on the matter.
 
 ## Spreadsheet Schema
@@ -40,7 +40,7 @@ Both sheets use these columns:
 | Column | Header | Format | Notes |
 |--------|--------|--------|-------|
 | A | File # | Text (e.g. "2026-001") | Auto-assigned: YYYY-NNN, incrementing from last entry |
-| B | Client Name | Text | Primary client name. **Standard format: `Entity Name (Principal Name)`** — e.g. "Maple Corp Inc. (Alex Park)". For individual clients with no entity, just use their name. For individuals acting through a numbered company, lead with the entity: "1234567 Corp. (Pat S.)". If multiple key individuals exist (e.g. two directors), comma-separate them inside the brackets: "Oak Realty Solutions Inc. (Sam Lee, Dana Cruz)". **Never use slash format** (e.g. "Name / Corp") — always use the brackets format for consistency. This ensures the conflict check catches both the entity and the individual(s) behind it. |
+| B | Client Name | Text | Primary client name. **Standard format: `Entity Name (Principal Name)`** — e.g. "Acme Corp Inc. (John Smith)". For individual clients with no entity, just use their name. For individuals acting through a numbered company, lead with the entity: "10014056 Holdings LLC (Jane D)". If multiple key individuals exist (e.g. two directors), comma-separate them inside the brackets: "ABC Real Estate Solutions Inc. (Bob Adams, Carol Chen)". **Never use slash format** (e.g. "Name / Corp") — always use the brackets format for consistency. This ensures the conflict check catches both the entity and the individual(s) behind it. |
 | C | Matter Description | Text (wrap text) | Brief description of the engagement |
 | D | Status | Text | "Open" or "Closed" |
 | E | Date Opened | Date (YYYY-MM-DD) | Date the file was opened |
@@ -58,7 +58,7 @@ Both sheets use these columns:
 | Q | Limitation Statute | Text | Key identifying the applicable limitation statute (e.g. "general_statute", "civil_rights"). ONLY set when there is a live or potential claim. Leave blank for transactional/advisory matters. |
 | R | Limitation Deadline | Date (YYYY-MM-DD) | Calculated or manually entered limitation expiry. Auto-calculated from Discovery Date + Statute if both are set. ONLY set when there is a live or potential claim. |
 | S | Court Deadlines | Text (JSON array) | Court-ordered deadlines stored as JSON. Each entry: {"date":"YYYY-MM-DD","description":"what's due","source":"endorsement or order reference"}. Only for bespoke deadlines from endorsements/orders — NOT routine rule-based deadlines like "defence due in 20 days". |
-| T | Matter Folder | Text | Subfolder name (NOT a full path) within the Open Files directory (e.g. "Smith, J." — not "/Users/.../Smith, J."). Used to resolve the matter folder path on disk. When creating a new matter, search the Open Files directory for a subfolder matching the client — try ALL of: the individual's last name, first name, full name, "Last, First" format, the company/entity name, and common abbreviations. Client folders are often named after the entity rather than the person (e.g. "Green Media Co" not "Martin, Robin"). Cast a wide net: list all subfolders and grep for each search term separately. Write just the subfolder name. Leave blank if no match. |
+| T | Matter Folder | Text | Subfolder name (NOT a full path) within the Open Files directory (e.g. "Smith, J." — not "/Users/.../Smith, J."). Used to resolve the matter folder path on disk. When creating a new matter, search the Open Files directory for a subfolder matching the client — try ALL of: the individual's last name, first name, full name, "Last, First" format, the company/entity name, and common abbreviations. Client folders are often named after the entity rather than the person (e.g. "Globex Inc." not "Smith, John"). Cast a wide net: list all subfolders and grep for each search term separately. Write just the subfolder name. Leave blank if no match. |
 | U | Other Parties / Related Persons | Text (wrap text) | All non-client, non-opposing parties involved in the matter: co-plaintiffs, co-defendants, witnesses, guarantors, landlords, agents, process servers, adjusters, corporate officers, and anyone else whose name should trigger a conflict check. Comma-separated. Include individuals behind corporate opposing parties if known (e.g. if opposing party is "Acme Corp", and the director is "Jane Doe", list "Jane Doe" here). This column is searched during conflict checks to catch indirect conflicts. |
 | V | Matter Type | Text | Free-text classification of the matter (e.g. "Litigation", "Solicitor", "Transactional", "Advisory", "Small Claims", "Demand Letter"). No fixed enum — keep values consistent with prior rows for filterability, but allow new categories as the practice evolves. Used for sorting and filtering matters in reports; not client-facing. |
 
@@ -68,7 +68,7 @@ Both sheets use these columns:
 - **Font**: Arial 10pt throughout
 - **Column widths**: A=12, B=22, C=40, D=10, E=14, F=14, G=14, H=22, I=30, J=60, K=14, L=14, M=22, N=16, O=30, P=14, Q=30, R=14, S=40, T=50, U=50, V=18
 - **Status column**: Use data validation (Open/Closed)
-- **Limitation Statute column (Q)**: Use data validation — list = "general_statute,general_ultimate,consumer_protection,employment,civil_rights,construction,insurance,municipal,custom"
+- **Limitation Statute column (Q)**: Use data validation — list = "general_statute,general_ultimate,consumer_protection,employment,civil_rights,construction,insurance_act,municipal_liability,custom"
 - **Wrap text** on columns C, I, J, S, and U **only** — do NOT set wrap_text on other columns
 
 ### Row Formatting (CRITICAL — must match existing rows exactly)
@@ -142,7 +142,7 @@ Rules for the timeline:
 - Each line is date + colon + short plain-language summary (no legalese, no fluff)
 - Keep each entry to ~10-15 words max
 - Include who did what where relevant (e.g. "Client sent signed SPA to opposing counsel")
-- Use "the lawyer" to refer to the lawyer — e.g. "the lawyer sent demand letter"
+- Use "the lawyer" to refer to the user — e.g. "the lawyer sent demand letter"
 - **Always include the intake/retention event** as the first timeline entry (e.g. "Client retained the lawyer re: ...")
 - **Always include filing events** (e.g. "the lawyer sent claim to process server for filing and service")
 - If closing, append: `YYYY-MM-DD: FILE CLOSED.`
@@ -153,7 +153,7 @@ Example:
 ```
 2026-01-15: Initial client intake call re: share purchase
 2026-01-18: Sent engagement letter to client
-2026-01-22: Received draft SPA from opposing counsel (Sterling LLP)
+2026-01-22: Received draft SPA from opposing counsel (Opposing Firm LLP)
 2026-02-01: Sent markup of SPA to opposing counsel
 2026-02-10: Client approved final SPA
 2026-02-14: Closing — executed SPA exchanged
@@ -185,7 +185,7 @@ These columns should be populated for every matter where the information is find
 Columns P, Q, and R track limitation periods. **These are ONLY populated when there is a live or potential claim.** Do NOT set these for transactional, advisory, or corporate matters where no cause of action exists.
 
 - **P — Discovery Date**: The date of discovery that triggers the limitation clock. This is a judgment call — flag if ambiguous and ask the user.
-- **Q — Limitation Statute**: One of: `general_statute` (2yr), `general_ultimate` (15yr), `consumer_protection` (2yr), `employment` (2yr), `civil_rights` (1yr), `construction` (2yr), `insurance` (1yr), `municipal` (10-day notice + 2yr), or `custom`. If none of the named statutes apply, use `custom` and ask the user to provide the deadline manually.
+- **Q — Limitation Statute**: One of: `general_statute` (2yr), `general_ultimate` (15yr), `consumer_protection` (2yr), `employment` (2yr), `civil_rights` (1yr), `construction` (2yr), `insurance_act` (1yr), `municipal_liability` (10-day notice + 2yr), or `custom`. If none of the named statutes apply, use `custom` and ask the user to provide the deadline manually.
 - **R — Limitation Deadline**: Auto-calculated from P + Q. If the statute is `custom`, the user enters the deadline manually.
 
 When creating a new matter that involves a claim (e.g. Small Claims, demand letter, employment dispute), **always ask the user about the discovery date and applicable limitation** if not obvious from the emails. Flag any limitation period that is within 6 months of expiry.
@@ -197,7 +197,7 @@ Column S stores court-ordered deadlines as a JSON array. Each entry has three fi
 ```json
 [
   {"date": "2026-03-25", "description": "Amend claim to add corporation", "source": "March 12 endorsement"},
-  {"date": "2026-04-27", "description": "Serve required court form on defendants", "source": "Rule X — 30 days before trial"}
+  {"date": "2026-04-27", "description": "Serve the required court form on defendants", "source": "Rule X — 30 days before trial"}
 ]
 ```
 
@@ -218,7 +218,7 @@ Column U captures every person or entity involved in the matter who is NOT the c
 - Process servers, adjusters, mediators
 - Family members or related individuals (e.g., "brought on behalf of" parties)
 
-**Format**: Comma-separated names. Include role context where helpful: "Sam Torres (co-plaintiff/witness), Lin Park (opposing counsel, Park Law)".
+**Format**: Comma-separated names. Include role context where helpful: "David Park (co-plaintiff/witness), Sarah Kim (opposing counsel, Kim Law)".
 
 **Why this matters**: The conflict check searches this column. If a future prospective client's name appears here, the user is alerted before opening a file that could create a conflict.
 
@@ -240,7 +240,7 @@ Gmail provides the primary chronological backbone of the timeline — it capture
 3. Read email threads until the timeline is complete. **Use `gmail_read_thread` or `gmail_read_message` on each thread** — do not rely on snippets alone, as snippets truncate critical details like dates, times, locations, and court file numbers. Read every thread that could contain a timeline event. There is no cap on how many threads to read — the goal is a complete chronological record. If there are dozens of threads, read them all. For efficiency, prioritize court/scheduling emails first, then substantive correspondence, then administrative emails — but do not skip threads just because there are many.
 4. Extract: dates, key actions, parties involved, documents exchanged, deadlines, outcomes.
 5. **Extract client contact info**: On every Gmail pull, look for the client's email address (from the "From" header), phone number, and mailing address (from email signatures, body text, or attached documents). If found and columns M-O are blank, populate them.
-6. **Court and scheduling emails are highest priority.** When any email originates from a court address (e.g. @court.example.gov, @superior-court.example.gov, any court clerk) or references a court file number, scheduling, or hearing date, **always read that message in full** and extract all dates, times, locations, and Zoom/video links. These must be captured verbatim in the Next Action field (with exact date and time) and in the Timeline. Never summarize or skip a court scheduling email.
+6. **Court and scheduling emails are highest priority.** When any email originates from a court address (e.g. @ontario.ca, @scj-csj.ca, any court clerk) or references a court file number, scheduling, or hearing date, **always read that message in full** and extract all dates, times, locations, and Zoom/video links. These must be captured verbatim in the Next Action field (with exact date and time) and in the Timeline. Never summarize or skip a court scheduling email.
 7. Build the base timeline from Gmail results.
 
 ### Step B — Client Folder Scan
@@ -354,7 +354,7 @@ Before adding a new matter, **always run a full conflicts check** against the ex
    - **If the matter involves a claim**: ask about discovery date and limitation statute; populate columns P-R. Flag if limitation is within 6 months.
    - **If the matter is transactional/advisory**: leave columns P-R blank.
    - Leave Court Deadlines (S) blank unless folder files or emails reveal a specific court-ordered deadline.
-   - **Matter Folder (T)**: Search the workspace directory for a subfolder matching the client. **All matching must be case-insensitive.** First, dump the full directory listing to a text file using `ls -1 > /tmp/dirlist.txt`, then grep against that file — this avoids shell issues with special characters (colons, ampersands, parentheses, etc.) in folder names. Try matching against ALL of these permutations of the client name: "First Last" (e.g. "alex chen"), "Last, First" (e.g. "Chen, Alex"), "Last First" (no comma), just the last name, just the first name, and any company/entity name from the matter description or opposing party field. **Also search for the mother/father/third-party name if the matter is brought on someone else's behalf** (e.g. for "Kim v. Walsh" brought by Carol Yang on behalf of Mei Kim, search for "Yang", "Carol", "Kim", and "Mei"). Folders are often named in lowercase or informal formats (e.g. "alex chen" not "Chen, Alex"), or after the entity rather than the person (e.g. "Green Media Co" not "Martin, Robin"), and frequently contain special characters like colons (e.g. "Carol Yang : Kim"). Cast a wide net — grep each search term separately and case-insensitively against the text file listing. If found, write just the subfolder name exactly as it appears on disk. If not found, leave blank.
+   - **Matter Folder (T)**: Search the workspace directory for a subfolder matching the client. **All matching must be case-insensitive.** First, dump the full directory listing to a text file using `ls -1 > /tmp/dirlist.txt`, then grep against that file — this avoids shell issues with special characters (colons, ampersands, parentheses, etc.) in folder names. Try matching against ALL of these permutations of the client name: "First Last" (e.g. "sam wilson"), "Last, First" (e.g. "Wilson, Sam"), "Last First" (no comma), just the last name, just the first name, and any company/entity name from the matter description or opposing party field. **Also search for the mother/father/third-party name if the matter is brought on someone else's behalf** (e.g. for "Connor v. Blake" brought by Sarah Connor on behalf of May Connor, search for "Connor", "Sarah", "Connor", and "May"). Folders are often named in lowercase or informal formats (e.g. "sam wilson" not "Wilson, Sam"), or after the entity rather than the person (e.g. "Globex Inc." not "Smith, John"), and frequently contain special characters like colons (e.g. "Sarah Connor : Connor"). Cast a wide net — grep each search term separately and case-insensitively against the text file listing. If found, write just the subfolder name exactly as it appears on disk. If not found, leave blank.
 7. Save the updated tracker to disk.
 8. **Calendar sync**: Invoke the `calendar-sync` skill's `reconcile(new_row)` for this matter. This pushes any limitation date (column R), court deadlines (column S), and dated Next Action (column I) to the Key Dates calendar with the appropriate reminder schedules. Report back to the user: "Pushed N events to Key Dates." If calendar-sync is unavailable, skip this step and note it once — do not block the tracker write.
 9. **Clio sync**: Run the Clio sync procedure (see "Clio Sync" section below). This searches Clio for an existing contact matching the client name, creates the contact if not found, and creates the matter — passing `flat_rate_amount` when a fee is known (parsed from the command or asked during confirmation), which makes the matter fully flat-configured in a single call. Report the Clio result to the user: `"Clio: contact #X (new|reused), matter #Y (display Z), flat fee $N"`. If the Clio MCP is unavailable, skip this step and note it once — do not block the tracker write.
@@ -446,12 +446,12 @@ Before adding a new matter, **always run a full conflicts check** against the ex
 You have X open matters:
 
 1. 2026-001 | Smith, J. | Share purchase agreement | Next: Awaiting signed docs | Last: 2026-03-01
-2. 2026-002 | Chen, M. | Damage deposit — Small Claims | Next: 2026-04-15 Settlement conf. | Last: 2026-03-10
+2. 2026-002 | Davis, R. | Damage deposit — Small Claims | Next: 2026-04-15 Settlement conf. | Last: 2026-03-10
 ...
 ```
 
 4. Flag any upcoming deadlines within the next 30 days (court deadlines from column S and Next Action dates from column I).
-5. **Flag any limitation periods within 6 months** (column R). Limitation deadlines are the highest-priority alerts — display them prominently, e.g.: "LIMITATION: File #2026-002 (Chen) — limitation expires 2026-06-15 (89 days)."
+5. **Flag any limitation periods within 6 months** (column R). Limitation deadlines are the highest-priority alerts — display them prominently, e.g.: "LIMITATION: File #2026-002 (Davis) — limitation expires 2026-06-15 (89 days)."
 6. Ask if the user wants to update or close any of them.
 
 **Filter support**: If the user asks a targeted question — e.g. "which matters have limitation deadlines in the next 90 days", "what hasn't been touched in 30 days", "show me all Small Claims files", "matters with upcoming court dates" — filter the display accordingly:
@@ -570,9 +570,9 @@ After the tracker row is written and the calendar sync runs, perform these steps
 
 **1. Determine client type from the tracker Client Name (column B):**
 
-- **Slash-format legacy rows** (e.g. `"Dakshidin Corporation / Whitechapel Holdings Inc. (Haigh)"`): the convention disallows slashes — they should be ampersands. If the Client Name contains ` / ` (space-slash-space), inline-convert it to ` & ` before running the rest of this step (so `"X / Y (Z)"` becomes `"X & Y (Z)"`). **The conversion is in-memory for this Clio call only — the tracker row is NOT modified.** Flag the conversion in the final Clio sync report so the lawyer sees which row was auto-handled (e.g. `"Note: Client name contains slash; converted to ampersand for Clio lookup. Tracker row unchanged."`). The lawyer has a one-time bulk migration script kept on their local machine (outside Cowork) for permanent cleanup; do not attempt to write back to the tracker from this skill. After conversion, the row is treated as a normal multi-entity company name — the resulting `"X & Y"` is sent to `clio_find_contact` as a single entity. If no match is found and a contact must be created, create it under the combined name `"X & Y"`; the lawyer can split it later in Clio if they want separate contacts.
-- Name contains parentheses (e.g. `"Maple Corp Inc. (Alex Park)"`) → **Company**. The Clio company name is the part before the open paren (`"Maple Corp Inc."`). The principal in parens is informational only — Clio gets the entity name.
-- Name contains a corporate suffix (`"Inc."`, `"LLC"`, `"Ltd."`, `"Corp."`, `"Co."`) or matches a numbered-company pattern (`"1234567 Corp."`) → **Company**. Use the full name as the company name.
+- **Slash-format legacy rows** (e.g. `"Alpha Corp / Beta Holdings Inc. (Harrison)"`): the convention disallows slashes — they should be ampersands. If the Client Name contains ` / ` (space-slash-space), inline-convert it to ` & ` before running the rest of this step (so `"X / Y (Z)"` becomes `"X & Y (Z)"`). **The conversion is in-memory for this Clio call only — the tracker row is NOT modified.** Flag the conversion in the final Clio sync report so the lawyer sees which row was auto-handled (e.g. `"Note: Client name contains slash; converted to ampersand for Clio lookup. Tracker row unchanged."`). The lawyer has a one-time bulk migration script kept on a local machine (outside Cowork) for permanent cleanup; do not attempt to write back to the tracker from this skill. After conversion, the row is treated as a normal multi-entity company name — the resulting `"X & Y"` is sent to `clio_find_contact` as a single entity. If no match is found and a contact must be created, create it under the combined name `"X & Y"`; the lawyer can split it later in Clio if they want separate contacts.
+- Name contains parentheses (e.g. `"Acme Corp Inc. (John Smith)"`) → **Company**. The Clio company name is the part before the open paren (`"Acme Corp Inc."`). The principal in parens is informational only — Clio gets the entity name.
+- Name contains a corporate suffix (`"Inc."`, `"LLC"`, `"Ltd."`, `"Corp."`, `"Co."`) or matches a numbered-company pattern (`"1001405607 Ontario Inc."`) → **Company**. Use the full name as the company name.
 - Otherwise → **Person**. Split into first and last name. Handle both `"First Last"` and `"Last, First"` formats. If the name is a single token, ask the user.
 
 **2. Dedup the contact:**
@@ -606,7 +606,7 @@ If no fee was provided (user said `skip`):
 
 `clio_create_matter(client_id=<from step 2>, description=<col C>, open_date=<col E or today>)`
 
-The tool auto-sets responsible_attorney and originating_attorney to the lawyer (Clio user id <USER_ID>). Capture `id` and `display_number` from the response.
+The tool auto-sets responsible_attorney and originating_attorney to the lawyer (Clio user id YOUR_CLIO_USER_ID). Capture `id` and `display_number` from the response.
 
 **How flat_rate_amount works:** When set, the MCP server POSTs the matter then PATCHes `custom_rate` with `type: FlatRate` and the given amount. Clio (a) flips `billing_method` to `"flat"` and (b) auto-creates a billable flat_rate TimeEntry whose total equals the amount. The matter is fully configured for invoicing in a single tool call — no separate activity step is needed. This is the correct path confirmed with Clio support. When `flat_rate_amount` is omitted, the matter is created hourly with no rate — the lawyer can add a rate or activities later.
 
@@ -646,7 +646,7 @@ When creating a new tracker from scratch, use openpyxl to build the spreadsheet 
 - Freeze panes at row 2
 - Auto-filter on the header row
 - Data validation on column D (Status): list = "Open,Closed"
-- Data validation on column Q (Limitation Statute): list = "general_statute,general_ultimate,consumer_protection,employment,civil_rights,construction,insurance,municipal,custom"
+- Data validation on column Q (Limitation Statute): list = "general_statute,general_ultimate,consumer_protection,employment,civil_rights,construction,insurance_act,municipal_liability,custom"
 - Print area and page setup: landscape, fit to 1 page wide
 
 **Sheet 2 — "Closed Matters":**
@@ -750,10 +750,10 @@ Omit any section that doesn't apply (e.g., skip "Key Terms" for a litigation mat
 
 ```
 ## Roles
-- James Patterson (Landlord principal, Metro Fashions Ltd.) — source: Lease Assignment executed Apr 7 2026, recital A
-- Wei Zhang (counsel for Assignor / Seller, 9876543 Corp.) — source: signature block of Lease Assignment; confirmed Apr 2 14:04 ET email
-- Rita Chen (Metro Fashions Controller) — source: Apr 17 11:39 email re security deposit wire
-- Sterling Lawyers Inc. (counsel of record for Landlord) — source: s.2.8.1(c) of Lease Assignment
+- John Doe (Landlord principal, Sample Corp Ltd.) — source: Lease Assignment executed Apr 7 2026, recital A
+- James Lee (counsel for Assignor / Seller, 1234567 Ontario Inc.) — source: signature block of Lease Assignment; confirmed Apr 2 14:04 ET email
+- Lisa Wang (Sample Corp Controller) — source: Apr 17 11:39 email re security deposit wire
+- ABC Lawyers Inc. (counsel of record for Landlord) — source: s.2.8.1(c) of Lease Assignment
 ```
 
 **Source tagging in the body.** Factual claims in the body sections (Risks, Positions, Open Items, Key Terms) follow this convention:
